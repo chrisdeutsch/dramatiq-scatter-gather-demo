@@ -1,0 +1,36 @@
+x-worker: &worker
+  image: dramatiq-scatter-gather-demo
+  build: .
+  restart: unless-stopped
+  depends_on:
+    valkey:
+      condition: service_healthy
+  environment:
+    - VALKEY_URL=redis://valkey:6379
+
+services:
+  valkey:
+    image: valkey/valkey:7.2
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+
+  reliable_worker:
+    <<: *worker
+    command: ["dramatiq", "--processes", "1", "--queues", "reliable_queue", "--",
+              "dramatiq_scatter_gather_demo.broker:broker", "dramatiq_scatter_gather_demo.actors"]
+
+  flaky_worker:
+    <<: *worker
+    command: ["dramatiq", "--processes", "1", "--queues", "flaky_queue", "--",
+              "dramatiq_scatter_gather_demo.broker:broker", "dramatiq_scatter_gather_demo.actors"]
+
+  gather_worker:
+    <<: *worker
+    command: ["dramatiq", "--processes", "1", "--queues", "gather_queue", "--",
+              "dramatiq_scatter_gather_demo.broker:broker", "dramatiq_scatter_gather_demo.actors"]
